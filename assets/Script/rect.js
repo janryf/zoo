@@ -79,7 +79,7 @@ cc.Class({
     },
 
     resetColor(){
-        this.spriteIndex = Math.floor(Math.random() * this.pref.sprites.length);
+        this.spriteIndex = Math.floor(Math.random() * this.pref.gameConfig.json.colorNumber);
         this.getComponent(cc.Sprite).spriteFrame = this.pref.sprites[this.spriteIndex];
     },
 

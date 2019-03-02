@@ -1,57 +1,27 @@
-// Learn cc.Class:
-//  - [Chinese] https://docs.cocos.com/creator/manual/zh/scripting/class.html
-//  - [English] http://docs.cocos2d-x.org/creator/manual/en/scripting/class.html
-// Learn Attribute:
-//  - [Chinese] https://docs.cocos.com/creator/manual/zh/scripting/reference/attributes.html
-//  - [English] http://docs.cocos2d-x.org/creator/manual/en/scripting/reference/attributes.html
-// Learn life-cycle callbacks:
-//  - [Chinese] https://docs.cocos.com/creator/manual/zh/scripting/life-cycle-callbacks.html
-//  - [English] https://www.cocos2d-x.org/docs/creator/manual/en/scripting/life-cycle-callbacks.html
-var STATE_IDLE = 0;
-var STATE_DRAWING = 1;
-var STATE_DEALING = 2;
+//游戏状态
+var STATE_IDLE = 0;//空闲
+var STATE_DRAWING = 1;//绘制状态
+var STATE_DEALING = 2;//展示消除、聚合动画状态
 
-var GROUP_LIMIT = 100;
+var POLY_VALVE = 100;//聚合数每达到这个值，就触发聚合事件
 
 cc.Class({
     extends: cc.Component,
     properties: {
-        // foo: {
-        //     // ATTRIBUTES:
-        //     default: null,        // The default value will be used only when the component attaching
-        //                           // to a node for the first time
-        //     type: cc.SpriteFrame, // optional, default is typeof default
-        //     serializable: true,   // optional, default is true
-        // },
-        // bar: {
-        //     get () {
-        //         return this._bar;
-        //     },
-        //     set (value) {
-        //         this._bar = value;
-        //     }
-        // },
     },
 
-    // LIFE-CYCLE CALLBACKS:
-
     onLoad () {
-        this.MODE = 0;
-        this.state = STATE_IDLE;
-        this.allRects = [];
+        this.allRects = [];//保存对所有方块的引用，下标依次对应x、y
         for(var i = 0; i < 8; i++){
             var line = [];
-            for(var j = 0; j < 6; j++){
+            for(var j = 0; j < 8; j++){
                 var node = cc.find('Canvas/rects/rect' + i.toString() + j.toString());
                 line.push(node);
-                //node.opacity = 100
-                //node.color.setA(0.5);
-                //console.log(node.name);
             }
             this.allRects.push(line);
         }
 
-        this._way = [];
+        this._drawWay = [];//保存当前划线的情况
         this._state = STATE_IDLE;
         this._pref = this.getComponent('Pref');
         this._maxLevel = 1;
@@ -73,7 +43,7 @@ cc.Class({
         this._countGroup = 0;
         this._txtGroup = cc.find('Canvas/txtGroup').getComponent(cc.Label);
         this._txtGroup.string = '聚合方块数：' + this._countGroup;
-        this._groupObject = GROUP_LIMIT;
+        this._groupObject = POLY_VALVE;
     },
 
     calcAllLevel(){
@@ -138,10 +108,10 @@ cc.Class({
         console.log('处理');
         this._state = STATE_DEALING;
 
-        var addRate = 0.1 * (this._way.length - 3);
+        var addRate = 0.1 * (this._drawWay.length - 3);
         addRate = Math.round(addRate * 10) / 10;
 
-        this._countGroup += this._way.length - 1;
+        this._countGroup += this._drawWay.length - 1;
         this._txtGroup.string = '聚合方块数：' + this._countGroup;
 
         if(this._countGroup > this._groupObject){
@@ -154,16 +124,16 @@ cc.Class({
                 this.allRects[i][j].opacity = 255;
 
         var levelArr = [];
-        for(var i = 0; i < this._way.length - 1; i++){
-            var rect = this._way[i].getComponent('rect');
+        for(var i = 0; i < this._drawWay.length - 1; i++){
+            var rect = this._drawWay[i].getComponent('rect');
             rect.setClear();
             levelArr.push(rect.level);
         }
-        var lastRect = this._way[this._way.length - 1].getComponent('rect');
+        var lastRect = this._drawWay[this._drawWay.length - 1].getComponent('rect');
         lastRect.setAdd(levelArr, addRate);
-        if(this._way.length >= 4){
+        if(this._drawWay.length >= 4){
             var txtLink = cc.find('Canvas/txtLink').getComponent(cc.Label);
-            txtLink.string = this._way.length + '连，增加' + addRate * 100 + '%增长速度';
+            txtLink.string = this._drawWay.length + '连，增加' + addRate * 100 + '%增长速度';
             this.scheduleOnce(function(){
                 txtLink.string = '';
             }, 4);
@@ -213,7 +183,7 @@ cc.Class({
             }
         }
         if(this._countGroup > this._groupObject){
-            this._groupObject += GROUP_LIMIT;
+            this._groupObject += POLY_VALVE;
             var allRect = [];
             for(var i = 0; i < this.allRects.length; i++){
                 for(var j = 0; j < this.allRects[0].length; j++){
@@ -243,8 +213,8 @@ cc.Class({
         if(this._state != STATE_IDLE)
             return;
 
-        this._way = [];
-        this._way.push(startNode);
+        this._drawWay = [];
+        this._drawWay.push(startNode);
         this._state = STATE_DRAWING;
         for(var i = 0; i < this.allRects.length; i++){
             for(var j = 0; j < this.allRects[i].length; j++){
@@ -282,14 +252,14 @@ cc.Class({
         if(indexI != -1){
             var node = this.allRects[indexI][indexJ];
             //console.log(node.name);
-            var startNode = this._way[0];
+            var startNode = this._drawWay[0];
             var startRect = startNode.getComponent('rect');
-            if(node.name == this._way[this._way.length - 1].name)
+            if(node.name == this._drawWay[this._drawWay.length - 1].name)
                 return;//在最后一个有效方块里移动
             
             for(var lastI = 0; lastI < this.allRects.length; lastI++){
                 for(var lastJ = 0; lastJ < this.allRects[0].length; lastJ++){
-                    if(this._way[this._way.length - 1] == this.allRects[lastI][lastJ]){
+                    if(this._drawWay[this._drawWay.length - 1] == this.allRects[lastI][lastJ]){
                         var isEnd = false;
                         if(indexI != lastI && indexJ != lastJ)
                             isEnd = true;
@@ -305,7 +275,7 @@ cc.Class({
                         }
 
                         if(isEnd){
-                            if(this._way.length > 2)
+                            if(this._drawWay.length > 2)
                                 this.doDeal();
                             else
                                 this.doCancel();
@@ -315,10 +285,10 @@ cc.Class({
                 }
             }
 
-            for(var i = 0; i < this._way.length; i++){
-                var wayNode = this._way[i];
+            for(var i = 0; i < this._drawWay.length; i++){
+                var wayNode = this._drawWay[i];
                 if(wayNode.name == node.name){
-                    if(this._way.length > 2)
+                    if(this._drawWay.length > 2)
                         this.doDeal();
                     else
                         this.doCancel();
@@ -328,14 +298,14 @@ cc.Class({
 
             
             if(startRect.spriteIndex != node.getComponent('rect').spriteIndex){
-                if(this._way.length > 2)
+                if(this._drawWay.length > 2)
                     this.doDeal();
                 else
                     this.doCancel();
                 return;//移动到了不同色的方块里，结束
             }
 
-            this._way.push(node);
+            this._drawWay.push(node);
             node.opacity = 255;
             console.log('加入', node.name);
         }
@@ -345,7 +315,7 @@ cc.Class({
         if(this._state != STATE_DRAWING)
             return;
 
-        if(this._way.length > 2)
+        if(this._drawWay.length > 2)
             this.doDeal();
         else
             this.doCancel();
@@ -355,7 +325,7 @@ cc.Class({
         if(this._state != STATE_DRAWING)
             return;
         
-        if(this._way.length > 2)
+        if(this._drawWay.length > 2)
             this.doDeal();
         else
             this.doCancel();
